@@ -228,3 +228,7 @@ dmypy.json
 cython_debug/
 
 .idea/vcs.xml
+
+venv
+
+.idea

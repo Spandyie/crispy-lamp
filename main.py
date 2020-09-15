@@ -5,8 +5,6 @@ from bs4 import BeautifulSoup
 import pickle
 from fmp_python.fmp import FMP
 
-from urllib.request import urlopen
-import json
 
 import pandas as pd
 import numpy as np
@@ -32,44 +30,9 @@ def download_sp500():
     return tickers
 
 
-# def get_market_capitalization(company):
-#     """
-#         Receive the content of ``url``, parse it as JSON and return the object.
-#
-#         Parameters
-#         ----------
-#         url : str
-#
-#         Returns
-#         -------
-#         dict
-#         """
-#     api_key = '14b4fa2d27fbcd148244dec7b578caa7'
-#     url = f"https://financialmodelingprep.com/api/v3/market-capitalization/{company}?apikey={api_key}"
-#     response = urlopen(url)
-#     data = response.read().decode("utf-8")
-#     return json.loads(data)
-#
-#
-# def get_summary_profile(company):
-#     api_key = '14b4fa2d27fbcd148244dec7b578caa7'
-#     url = f"https://financialmodelingprep.com/api/v3/quote/{company}?apikey={api_key}"
-#     response = urlopen(url)
-#     data = response.read().decode("utf-8")
-#     summary_data = json.loads(data)
-#
-#
-# def get_key_metric(company):
-#     api_key = '14b4fa2d27fbcd148244dec7b578caa7'
-#     url = f"https://financialmodelingprep.com/api/v3/key-metrics/{company}?apikey={api_key}"
-#     response = urlopen(url)
-#     data = response.read().decode("utf-8")
-#     summary_data = json.loads(data)
-#     return summary_data[0]
-#
 
 def value_to_float(value):
-    """Arguement:
+    """Argument:
     value : (String) Digits converted to striing
     """
     try:
@@ -105,6 +68,7 @@ def value_to_float(value):
 
     except:
         return value
+
 
 @st.cache
 def summary_data(company_name):
@@ -166,7 +130,6 @@ if __name__ == "__main__":
     ###################
     st.altair_chart(alt.Chart(selected_company_data).mark_bar().encode(
         color="Symbol:N",
-        x="Symbol:N",
-        y=metric_list+":Q").interactive(), use_container_width=True)
+        y=alt.Y(metric_list+":Q")).interactive(), use_container_width=True)
 
 
