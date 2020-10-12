@@ -232,3 +232,4 @@ cython_debug/
 venv
 
 .idea
+requirements.txt

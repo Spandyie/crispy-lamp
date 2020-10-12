@@ -1,34 +1,37 @@
-
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pickle
 from fmp_python.fmp import FMP
-
+import time
+import datetime
+import os
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
 import altair as alt
+import itertools
+import random
 
 fmp = FMP(api_key='14b4fa2d27fbcd148244dec7b578caa7')
 
 
-def download_sp500():
+def download_sp500(num_sample):
     resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
     soup = BeautifulSoup(resp.text)
     table = soup.find('table', {'class': 'wikitable sortable'})
-    tickers = []
+    num_samples = 100
+    tickers = {}
     for row in table.findAll('tr')[1:]:
-        ticker = row.findAll('td')[0].text.strip()
-
-        tickers.append(ticker)
-
-    with open("sp500tickers.pickle", "wb") as f:
-        pickle.dump(tickers, f)
-
+        row_contents = row.findAll('td')
+        name = row_contents[0].text.strip()
+        company_name = row_contents[1].text.strip()
+        industry_type = row_contents[3].text.strip()
+        tickers[name] = (company_name, industry_type)
+    tickers = dict(random.sample(tickers.items(), num_samples))
     return tickers
-
 
 
 def value_to_float(value):
@@ -71,6 +74,20 @@ def value_to_float(value):
 
 
 @st.cache
+def load_summary(num_files):
+    summary_metrics = list()
+    company_names = download_sp500(num_files)
+    for company, value in company_names.items():
+        data_from_indv_company = summary_data(company)
+        data_from_indv_company['company_name'] = value[0]
+        data_from_indv_company['industry_type'] = value[-1]
+        summary_metrics.append(data_from_indv_company)
+    m_summary_metrics_df = pd.DataFrame(summary_metrics)
+    m_summary_metrics_df.to_csv("summary_data.csv")
+    return m_summary_metrics_df
+
+
+@st.cache
 def summary_data(company_name):
     resp = requests.get(f'https://financialmodelingprep.com/financial-summary/{company_name}')
     soup = BeautifulSoup(resp.text, 'html.parser')
@@ -83,53 +100,66 @@ def summary_data(company_name):
             value = elements.findAll("td")[0].text
             try:
                 summary[key] = value_to_float(value)
-            except:
-                print("Keynot found")
+            except KeyError:
+                print("Key not found")
+            except ValueError:
+                pass
     return summary
 
 
 if __name__ == "__main__":
-    #TODO: only load data if it is present
-    #
-    st.title('S&p500 Companies')
+    # TODO: only load data if it is present
+    st.title('Standard & Poor 500 Companies')
     data_load_state = st.text('Loading data...')
-    summary_metrics = list()
-    ticker = download_sp500()
-    company_list = ticker[:200]
-    for company in company_list:
-        data_from_indv_company = summary_data(company)
-        summary_metrics.append(data_from_indv_company)
+    s_n_p_file = Path('summary_data.csv')
+    # click the refresh button to see when the file was last updated
+    if st.button("Refresh"):
+        try:
+            absolute_path = s_n_p_file.resolve(True)
+            last_modified_time = absolute_path.stat().st_mtime
+            last_modified_date = datetime.datetime.fromtimestamp(last_modified_time)
+            difference = datetime.datetime.now() - last_modified_date
+            if difference.days > 1:
+                data_load_state.text('Loading data...done!')
+                summary_metrics_df = load_summary(50)
 
-    summary_metrics_df = pd.DataFrame(summary_metrics)
-    summary_metrics_df.to_csv("summary_data.csv")
+            else:
+                # if the file does not need to be modified, just load the existing file
+                summary_metrics_df = st.cache(pd.read_csv)("summary_data.csv")
+        except FileNotFoundError:
+            summary_metrics_df = load_summary(50)
+    elif s_n_p_file.is_file():
+        # cache the data
+        summary_metrics_df = st.cache(pd.read_csv)("summary_data.csv")
+    else:
+        summary_metrics_df = load_summary(500)
     data_load_state.text('Loading data...done!')
-    ##########
-    #cache the data
-    #summary_metrics_df = st.cache(pd.read_csv)("summary_data.csv")
-########################################################
+    ########################################################
     # write the raw data
     if st.checkbox('Show raw data'):
         st.title('Raw data')
-        #st.write(summary_metrics.sort_values(by=['Dividends'], ascending=False))
         st.write(summary_metrics_df)
 
-    ###
-    ## Allow the users to select the names of the company
-    names_of_the_company = st.sidebar.multiselect("Enter the names of the company", summary_metrics_df['Symbol'].unique())
-    st.write("Your selected companies are", names_of_the_company)
-    ## now select the metrics users want to use
-    metric_list = st.selectbox("Which metrics would you want to consider for the evaluation?",
-                          ("P/E", "Debt / Equity", "Dividend Yield", "Market Cap", "Price", "Dividend Yield"))
+    ########################################################
+    # Allow the users to select the names of the company
+    names_of_the_company = st.sidebar.multiselect("Enter names of the company", summary_metrics_df['company_name'].unique())
+    st.write("Your selected companies are", summary_metrics_df[summary_metrics_df['company_name']
+             .isin(names_of_the_company)][['Symbol','industry_type']])
+    # now select the metrics users want to use
+    metric_list: list = st.selectbox("Which metrics would you want to consider for the evaluation?",
+                                     ("P/E", "Debt / Equity", "ROE", "ROA", "Market Cap", "Price"))
     st.write('You selected:', metric_list)
-    ######################################################
+    #########################################################
     st.subheader("Value of the shortlisted stocks")
-    selected_company_data = summary_metrics_df[summary_metrics_df['Symbol'].isin(names_of_the_company)]
-    select_company_data = selected_company_data[["Symbol",metric_list]]
+    selected_company_data = summary_metrics_df[summary_metrics_df['company_name'].isin(names_of_the_company)]
+    select_company_data = selected_company_data[['company_name', metric_list]]
+    select_company_data_sorted = select_company_data.sort_values(by=metric_list, ascending=False)
     if st.checkbox('Show raw data from the selected '):
-        st.write(select_company_data)
-    ###################
-    st.altair_chart(alt.Chart(selected_company_data).mark_bar().encode(
-        color="Symbol:N",
-        y=alt.Y(metric_list+":Q")).interactive(), use_container_width=True)
-
-
+        st.write(select_company_data_sorted)
+    #####################################################
+    st.altair_chart(alt.Chart(selected_company_data).mark_bar()
+                    .encode(x=alt.X('company_name', sort=alt.SortField(field=metric_list, order='descending'),
+                                    axis=alt.Axis(title='Company Name')),
+                            y=alt.Y(metric_list + ":Q", axis=alt.Axis(title=metric_list)),
+                            color='Symbol:N')
+                    .interactive(), use_container_width=True)
