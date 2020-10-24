@@ -175,11 +175,16 @@ if __name__ == "__main__":
     if st.checkbox('Show raw data from the selected '):
         st.write(select_company_data_sorted)
     #####################################################
-    if st.checkbox(f"Display the {metric_list[0]} graph") and metric_list:
+    if metric_list and st.checkbox(f"Display the {metric_list[0]} graph") :
+
         st.altair_chart(alt.Chart(selected_company_data).mark_bar()
                     .encode(x=alt.X('company_name', sort=alt.SortField(field=metric_list[0], order='descending'),
-                                    axis=alt.Axis(title='Company Name')),
+                            axis=alt.Axis(title='Company Name')),
                             y=alt.Y(metric_list[0] + ":Q", axis=alt.Axis(title=metric_list[0])),
+                            tooltip=[alt.Tooltip('company_name'),
+                                     alt.Tooltip("PE Ratio (TTM)"),
+                                     alt.Tooltip("52 Week Range"),
+                                     alt.Tooltip("Forward Dividend & Yield")],
                             color='Symbol:N').interactive(), use_container_width=True)
 
     if len(metric_list)>1 and st.checkbox(f"Display the {metric_list[1]} graph"):
