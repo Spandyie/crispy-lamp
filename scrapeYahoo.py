@@ -106,6 +106,19 @@ def load_summary(num_files) -> object:
     return m_summary_metrics_df
 
 
+def download_historical_price(name_of_company):
+    """
+    Downloads the csv file of the histrcial stock proces
+    Args name_of_company: String"""
+    """download csv file for the historical price"""
+    download_url = f"https://query1.finance.yahoo.com/v7/finance/download/{name_of_company}?period1=1446422400&period2=1604188800&interval=1d&events=history&includeAdjustedClose=true"
+    req = requests.get(download_url)
+    with open(f"./price/{name_of_company}.csv","wb") as file:
+        file.write(req.content)
+
+
+
+
 if __name__ == "__main__":
     summary = load_summary(10)
     print(summary)
