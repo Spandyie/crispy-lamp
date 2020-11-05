@@ -176,11 +176,15 @@ if __name__ == "__main__":
             time.sleep(0.1)
             progress_bar.progress(percent_complete + 1)
         hist_df = st.cache(pd.read_csv)(f"./price/{symbol_4_hist_data}.csv")
-        # st.write(hist_df)
+        # melt the data so that columns are rows
+        hist_df["Date"] = pd.to_datetime(hist_df["Date"]).dt.date
+        hist_df = hist_df[["Date", "Open", "Close"]].melt("Date")
 
         st.altair_chart(alt.Chart(hist_df).mark_line().encode(x='Date',
-                                                              y='Low',
-                                                              color='Symbol:N').interactive(), use_container_width=True)
+                                                              y='value',
+                                                              color='variable').interactive(), use_container_width=True)
+
+
 
 
 
